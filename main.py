@@ -12,6 +12,7 @@ zip_name = '2001_m_k.zip'
 catalog = '2001/'
 save_path = 'download/'
 
+
 def main():
     # correct_csv(path+file_name)
 
@@ -43,22 +44,24 @@ def deg_min_sec2deg(df: pd.DataFrame, begin: str):
     del df[begin + ' min']
     del df[begin + ' sec']
 
+
 def import_stations_connector(csv):
     return pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
-                       names = ['long number', 'location', 'short number'])
+                       names=['long number', 'location', 'short number'])
+
 
 def import_stations_measurement(csv):
     return pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
-                       names = ['long number', 'location', 'year', 'month',
-                                'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
-                                'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud'])
+                       names=['long number', 'location', 'year', 'month',
+                              'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
+                              'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud'])
 
 
 def import_stations_coord(csv):
     return pd.read_csv(csv, sep=' ', names=['short number', 'location',
-                                    'lat deg', 'lat min', 'lat sec',
-                                    'lon deg', 'lon min', 'lon sec',
-                                    'station', 'y1','y2','y3','y4','y5','y6','y7', 'y8'])
+                                            'lat deg', 'lat min', 'lat sec',
+                                            'lon deg', 'lon min', 'lon sec',
+                                            'station', 'y1', 'y2', 'y3', 'y4', 'y5', 'y6', 'y7', 'y8'])
 
 
 def download_zip(link: str, path_to_save: str, catalog_to_save: str):
