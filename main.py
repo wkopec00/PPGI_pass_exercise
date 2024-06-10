@@ -13,29 +13,65 @@ catalog = '2001/'
 save_path = 'download/'
 
 def main():
-    correct_csv(path+file_name)
+    # correct_csv(path+file_name)
+
     # download_zip(url+catalog+zip_name, save_path, catalog)
     # extract_zip(save_path+catalog+'1951_1955_m_k.zip')
 
-    # import_stations(path+'correct-'+file_name)
+    df_stations_coord = import_stations_coord(path+'correct-'+file_name)
+    deg_min_sec2deg(df_stations_coord, 'lat')
+    deg_min_sec2deg(df_stations_coord, 'lon')
+
+    df_stations_measurement = import_stations_measurement(save_path+catalog+'k_m_t_2001.csv')
+    df_stations_connector = import_stations_connector(path+'wykaz_stacji.csv')
+
+    merged_df = pd.merge(df_stations_coord, df_stations_connector, on='short number')
+    merged_df = pd.merge(merged_df, df_stations_measurement, on='long number')
+
+    print(merged_df)
+    new_order = ['short number', 'long number', 'lat', 'lon', 'station', 'location', 'year', 'month',
+                 'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
+                 'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud']
+    merged_df = merged_df.reindex(columns=new_order)
+    merged_df.to_excel('test.xlsx', index=False)
+    print(merged_df)
 
 
-def import_stations(csv):
-    stations = pd.read_csv(csv)
-    #print(stations)
+def deg_min_sec2deg(df: pd.DataFrame, begin: str):
+    df[begin] = df[begin + ' deg'] + df[begin + ' min']/60 + df[begin + ' sec']/3600
+    del df[begin + ' deg']
+    del df[begin + ' min']
+    del df[begin + ' sec']
+
+def import_stations_connector(csv):
+    return pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
+                       names = ['long number', 'location', 'short number'])
+
+def import_stations_measurement(csv):
+    return pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
+                       names = ['long number', 'location', 'year', 'month',
+                                'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
+                                'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud'])
 
 
-def download_zip(url: str, save_path: str, catalog: str):
+def import_stations_coord(csv):
+    return pd.read_csv(csv, sep=' ', names=['short number', 'location',
+                                    'lat deg', 'lat min', 'lat sec',
+                                    'lon deg', 'lon min', 'lon sec',
+                                    'station', 'y1','y2','y3','y4','y5','y6','y7', 'y8'])
+
+
+def download_zip(link: str, path_to_save: str, catalog_to_save: str):
     """
     Download zip file from url to save_path/catalog
-    :param url: url to zip file
-    :param save_path:
-    :param catalog:
+    :param link: url to zip file
+    :param path_to_save:
+    :param catalog_to_save:
     :return: None
     """
-    r = requests.get(url)
-    os.makedirs(save_path+catalog, exist_ok=True)
-    with open(save_path+catalog+'1951_1955_m_k.zip', 'wb') as f:
+    r = requests.get(link)
+    os.makedirs(path_to_save + catalog_to_save, exist_ok=True)
+    with open(path_to_save + catalog_to_save + '1951_1955_m_k.zip', 'wb') as f:
         f.write(r.content)
 
     return None
@@ -77,10 +113,29 @@ def correct_csv(name: str) -> None:
                 continue
             new_lines.append(new_line)
 
-
     save_csv(path + 'correct-' + file_name, new_lines)
 
-    return None
+
+def correct_line(line: str) -> str:
+    """
+    function fills lines where seconds in lon/lat are missing
+    :param line: string with data without seconds
+    :return: line with seconds filled
+    """
+    splited_line = line.split(' ')
+
+    # create new line filling 0 where seconds should be
+    new_line = splited_line[0:4]
+    new_line.append('0')
+    new_line.extend(splited_line[4:6])
+    new_line.append('0')
+    new_line.extend(splited_line[6:])
+
+    # conversion elements to str to make join possible and join
+    new_line = [str(item) for item in new_line]
+    joined_string = ' '.join(new_line)
+
+    return joined_string
 
 
 def fix_split_names(line: str) -> str:
@@ -106,7 +161,6 @@ def fix_split_names(line: str) -> str:
         else:
             fixed_row.append(row[i])
 
-
     joined_string = ' '.join(fixed_row+rest)
 
     return joined_string
@@ -123,35 +177,8 @@ def index_of_start_data(list_line: list) -> int:
             continue
         else:
             return list_line.index(item)
-            break
 
     return -1
-
-
-def remove_elements_from_index(l:list, index:int) -> None:
-    # remove from index to the end
-    del l[index:]
-
-def correct_line(line: str) -> str:
-    """
-    function fills lines where seconds in lon/lat are missing
-    :param line: string with data without seconds
-    :return: line with seconds filled
-    """
-    splited_line = line.split(' ')
-
-    # create new line filling 0 where seconds should be
-    new_line = splited_line[0:4]
-    new_line.append('0')
-    new_line.extend(splited_line[4:6])
-    new_line.append('0')
-    new_line.extend(splited_line[6:])
-
-    # conversion elements to str to make join possible and join
-    new_line = [str(item) for item in new_line]
-    joined_string = ' '.join(new_line)
-
-    return joined_string
 
 
 def save_csv(name: str, lines: list) -> None:
@@ -163,11 +190,14 @@ def save_csv(name: str, lines: list) -> None:
     """
     with open(name, 'w', encoding='utf-8') as f:
         for line in lines:
-            if len(line.split(' ')) != 17:
-                print(line)
             f.write(line)
 
     return None
+
+
+def remove_elements_from_index(ls: list, index: int) -> None:
+    # remove from index to the end
+    del ls[index:]
 
 
 if __name__ == '__main__':
