@@ -3,39 +3,60 @@ import requests
 import zipfile
 import os
 import re
-
-path = 'data/'
-file_name = 'Stacje_klimat_utf-8.csv'
-
-url = 'https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/'
-zip_name = '2001_m_k.zip'
-catalog = '2001/'
-save_path = 'download/'
+import time
+from bs4 import BeautifulSoup
 
 
 def main():
-    # correct_csv(path+file_name)
+    path_data = 'data/'
 
+    url = 'https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/miesieczne/klimat/'
+    save_path = 'download/'
+
+    # correct_csv(path_data, 'Stacje_klimat_utf-8.csv')       # correct Stacje-klimat_utf-8.csv
+
+    links = get_directory_structure(url)
+
+    for year in links:
+        #download_zip(url+year+year[:-1]+'_m_k.zip', save_path, year)
+        extract_zip(save_path+year+'data.zip', path_data+'all_years_csv')
+        #print(year)
+        #time.sleep(5)
+    print('done')
     # download_zip(url+catalog+zip_name, save_path, catalog)
     # extract_zip(save_path+catalog+'1951_1955_m_k.zip')
 
-    df_stations_coord = import_stations_coord(path+'correct-'+file_name)
-    deg_min_sec2deg(df_stations_coord, 'lat')
-    deg_min_sec2deg(df_stations_coord, 'lon')
+    # df_stations_coord = import_stations_coord(path+'correct-'+file_name)
+    # deg_min_sec2deg(df_stations_coord, 'lat')
+    # deg_min_sec2deg(df_stations_coord, 'lon')
+    #
+    # df_stations_measurement = import_stations_measurement(save_path+catalog+'k_m_t_2001.csv')
+    # df_stations_connector = import_stations_connector(path+'wykaz_stacji.csv')
+    #
+    # merged_df = pd.merge(df_stations_coord, df_stations_connector, on='short number')
+    # merged_df = pd.merge(merged_df, df_stations_measurement, on='long number')
+    #
+    # print(merged_df)
+    # new_order = ['short number', 'long number', 'lat', 'lon', 'station', 'location', 'year', 'month',
+    #              'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
+    #              'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud']
+    # merged_df = merged_df.reindex(columns=new_order)
+    # merged_df.to_excel('test.xlsx', index=False)
+    # print(merged_df)
 
-    df_stations_measurement = import_stations_measurement(save_path+catalog+'k_m_t_2001.csv')
-    df_stations_connector = import_stations_connector(path+'wykaz_stacji.csv')
 
-    merged_df = pd.merge(df_stations_coord, df_stations_connector, on='short number')
-    merged_df = pd.merge(merged_df, df_stations_measurement, on='long number')
+def get_directory_structure(url_to_download):
+    r = requests.get(url_to_download)
 
-    print(merged_df)
-    new_order = ['short number', 'long number', 'lat', 'lon', 'station', 'location', 'year', 'month',
-                 'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
-                 'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud']
-    merged_df = merged_df.reindex(columns=new_order)
-    merged_df.to_excel('test.xlsx', index=False)
-    print(merged_df)
+    soup = BeautifulSoup(r.text, 'html.parser')
+
+    links = []
+    for link in soup.find_all('a'):
+        href = link.get('href')
+        if href and not href.startswith('?') and not href.startswith('/') and not href.endswith('.txt'):
+            links.append(href)
+
+    return links
 
 
 def deg_min_sec2deg(df: pd.DataFrame, begin: str):
@@ -74,33 +95,36 @@ def download_zip(link: str, path_to_save: str, catalog_to_save: str):
     """
     r = requests.get(link)
     os.makedirs(path_to_save + catalog_to_save, exist_ok=True)
-    with open(path_to_save + catalog_to_save + '1951_1955_m_k.zip', 'wb') as f:
+    with open(path_to_save + catalog_to_save + 'data.zip', 'wb') as f:
         f.write(r.content)
 
     return None
 
 
-def extract_zip(path_to_zip: str):
+def extract_zip(path_to_zip: str, path_to_save):
     """
-    Extract zip file from path_to_zip and saves in same path
+    Extract zip file from path_to_zip and saves in path_to_save directory
     :param path_to_zip:
     :return: None
     """
     with zipfile.ZipFile(path_to_zip, 'r') as zip_ref:
-        zip_ref.extractall(save_path+catalog)
+        for file_info in zip_ref.infolist():
+            if 'k_m_t' in file_info.filename:
+                zip_ref.extract(file_info, path_to_save)
 
     return None
 
 
-def correct_csv(name: str) -> None:
+def correct_csv(path: str, file_name: str) -> None:
     """
     this function search lines where is no seconds and fill them with '0', then save it
     to csv file named 'correct-{name}'
-    :param name: name of the csv file
+    :param path: path to csv file
+    :param file_name: name of the csv file
     :return: None
     """
     new_lines = []
-    with open(name, 'r') as f:
+    with open(path+file_name, 'r') as f:
         f.readline()  # skip first line
 
         lines = f.readlines()
