@@ -49,6 +49,21 @@ def main():
     merged_df = merged_df.reindex(columns=new_order)
     merged_df.to_excel('result/all_data_merged.xlsx', index=False)
 
+    create_every_year_xlsx('sr_miesiac_wilg', merged_df, df_stations_coord)
+
+
+def create_every_year_xlsx(value: str, merged_df, df_stations_coord):
+    df_dict_years = {rok: merged_df[merged_df['year'] == rok].pivot(
+        index='short number', columns='month', values=value) for rok in merged_df['year'].unique()}
+
+    for rok, df_roku in df_dict_years.items():
+        m_df = pd.merge(df_roku, df_stations_coord, on='short number')
+
+        folder_path = f'result/{value}/'
+        os.makedirs(folder_path, exist_ok=True)
+
+        m_df.to_excel(f'{folder_path + str(rok)}.xlsx', index=False)
+
 
 def get_directory_structure(url_to_download):
     r = requests.get(url_to_download)
@@ -83,10 +98,15 @@ def import_stations_connector(csv):
 
 
 def import_stations_measurement(csv):
-    return pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
-                       names=['long number', 'location', 'year', 'month',
-                              'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
-                              'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud'])
+    df = pd.read_csv(csv, quotechar='"', sep=',', encoding='ISO-8859-1',
+                     names=['long number', 'location', 'year', 'month',
+                     'sr_miesiac_temp', 'stat_temp', 'sr_miesiac_wilg', 'stat_wilg',
+                     'sr_miesiac_wind', 'stat_wind', 'sr_miesiac_cloud', 'stat_cloud'])
+    df.loc[df['stat_temp'] == 8, 'sr_miesiac_temp'] = pd.NA
+    df.loc[df['stat_wilg'] == 8, 'sr_miesiac_wilg'] = pd.NA
+    df.loc[df['stat_wind'] == 8, 'sr_miesiac_wind'] = pd.NA
+    df.loc[df['stat_cloud'] == 8, 'sr_miesiac_cloud'] = pd.NA
+    return df
 
 
 def import_stations_coord(csv):
